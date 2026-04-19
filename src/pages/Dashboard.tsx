@@ -1,7 +1,9 @@
+import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../features/auth/AuthContext';
 import api from '../api/axios';
-import Header from '../components/Header';
+//import Header from '../components/Header';
+import HeaderMUI from '../components/HeaderMUI';
 import Sidebar from '../components/Sidebar';
 import MainContent from '../components/MainContent';
 import ProjectForm from '../components/ProjectForm';
@@ -26,6 +28,8 @@ export default function Dashboard() {
   const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -47,8 +51,21 @@ export default function Dashboard() {
   }, []);
 
   async function addProject(name: string, color: string) {
-    const { data } = await api.post('/projects', { name, color });
-    setProjects((prev) => [...prev, data]);
+    setSaving(true);
+    setError(null);
+
+    try {
+      const { data } = await api.post('/projects', { name, color });
+      setProjects((prev) => [...prev, data]);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.message || `Erreur ${err.response?.status}`);
+      } else {
+        setError('Erreur inconnue');
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function renameProject(project: Project) {
@@ -69,26 +86,25 @@ export default function Dashboard() {
   }
 
   async function deleteProject(id: string) {
-  const ok = confirm('Êtes-vous sûr ?');
+    const ok = confirm('Êtes-vous sûr ?');
 
-  if (!ok) {
-    return;
+    if (!ok) {
+      return;
+    }
+
+    try {
+      await api.delete('/projects/' + id);
+      setProjects((prev) => prev.filter((p) => p.id !== id));
+    } catch (error) {
+      console.error(error);
+    }
   }
-
-  try {
-    await api.delete('/projects/' + id);
-
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-  } catch (error) {
-    console.error(error);
-  }
-}
 
   if (loading) return <div className={styles.loading}>Chargement...</div>;
 
   return (
     <div className={styles.layout}>
-      <Header
+      <HeaderMUI
         title="TaskFlow"
         onMenuClick={() => setSidebarOpen((p) => !p)}
         userName={authState.user?.name}
@@ -101,9 +117,17 @@ export default function Dashboard() {
         <div className={styles.content}>
           <div className={styles.toolbar}>
             {!showForm ? (
-              <button className={styles.addBtn} onClick={() => setShowForm(true)}>
-                + Nouveau projet
-              </button>
+              <>
+                {error && <div className={styles.error}>{error}</div>}
+
+                <button
+                  className={styles.addBtn}
+                  onClick={() => setShowForm(true)}
+                  disabled={saving}
+                >
+                  + Nouveau projet
+                </button>
+              </>
             ) : (
               <ProjectForm
                 submitLabel="Créer"
