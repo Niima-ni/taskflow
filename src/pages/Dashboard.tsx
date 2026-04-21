@@ -1,104 +1,30 @@
-import axios from 'axios';
-import { useState, useEffect } from 'react';
-import { useAuth } from '../features/auth/AuthContext';
-import api from '../api/axios';
-//import Header from '../components/Header';
+import { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import type { RootState } from '../store';
+import { logout } from '../features/auth/authSlice';
+import useProjects from '../hooks/useProjects'; // Import du hook
 import HeaderMUI from '../components/HeaderMUI';
 import Sidebar from '../components/Sidebar';
 import MainContent from '../components/MainContent';
 import ProjectForm from '../components/ProjectForm';
 import styles from './Dashboard.module.css';
 
-interface Project {
-  id: string;
-  name: string;
-  color: string;
-}
-
-interface Column {
-  id: string;
-  title: string;
-  tasks: string[];
-}
-
 export default function Dashboard() {
-  const { state: authState, dispatch } = useAuth();
+  const dispatch = useDispatch();
+  const authUser = useSelector((state: RootState) => state.auth.user);
+
+  // Utilisation du hook personnalisé pour récupérer l'état et les fonctions
+ const { 
+  projects, 
+  columns, 
+  loading, 
+  error, 
+  addProject
+} = useProjects();
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [columns, setColumns] = useState<Column[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [projRes, colRes] = await Promise.all([
-          api.get('/projects'),
-          api.get('/columns'),
-        ]);
-        setProjects(projRes.data);
-        setColumns(colRes.data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
-  async function addProject(name: string, color: string) {
-    setSaving(true);
-    setError(null);
-
-    try {
-      const { data } = await api.post('/projects', { name, color });
-      setProjects((prev) => [...prev, data]);
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || `Erreur ${err.response?.status}`);
-      } else {
-        setError('Erreur inconnue');
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function renameProject(project: Project) {
-    const newName = prompt('Nouveau nom :', project.name);
-
-    if (!newName || newName.trim() === '' || newName === project.name) {
-      return;
-    }
-
-    const { data } = await api.put('/projects/' + project.id, {
-      ...project,
-      name: newName,
-    });
-
-    setProjects((prev) =>
-      prev.map((p) => (p.id === project.id ? data : p))
-    );
-  }
-
-  async function deleteProject(id: string) {
-    const ok = confirm('Êtes-vous sûr ?');
-
-    if (!ok) {
-      return;
-    }
-
-    try {
-      await api.delete('/projects/' + id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    } catch (error) {
-      console.error(error);
-    }
-  }
 
   if (loading) return <div className={styles.loading}>Chargement...</div>;
 
@@ -107,9 +33,10 @@ export default function Dashboard() {
       <HeaderMUI
         title="TaskFlow"
         onMenuClick={() => setSidebarOpen((p) => !p)}
-        userName={authState.user?.name}
-        onLogout={() => dispatch({ type: 'LOGOUT' })}
+        userName={authUser?.name}
+        onLogout={() => dispatch(logout())}
       />
+
 
       <div className={styles.body}>
         <Sidebar projects={projects} isOpen={sidebarOpen} />
@@ -123,7 +50,6 @@ export default function Dashboard() {
                 <button
                   className={styles.addBtn}
                   onClick={() => setShowForm(true)}
-                  disabled={saving}
                 >
                   + Nouveau projet
                 </button>

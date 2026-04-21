@@ -13,6 +13,9 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ projects, isOpen }: SidebarProps) {
+  // Ce log s'affichera à chaque fois que le Dashboard change d'état (ex: menu toggle)
+  console.log('Sidebar re-render');
+
   return (
     <aside className={`${styles.sidebar} ${isOpen ? styles.open : styles.closed}`}>
       <h2 className={styles.title}>Mes Projets</h2>
